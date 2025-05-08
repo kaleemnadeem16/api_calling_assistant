@@ -1,20 +1,22 @@
 # API Calling Assistant
 
-A Python-based AI assistant that fetches real-time weather data from external APIs and presents it in a conversational format.
+A Python-based AI assistant that demonstrates **OpenAI Function Calling** capabilities by integrating with external APIs. This project showcases how to use OpenAI's GPT models to intelligently call external APIs (OpenWeatherMap) based on natural language queries.
 
 ## 🌟 Features
 
-- **Natural Language Processing**: Ask weather questions in plain English
-- **Real-time Weather Data**: Powered by OpenWeatherMap API
-- **Error Handling**: Graceful handling of network issues and invalid inputs
-- **Command-line Interface**: Simple terminal-based interaction
-- **Secure Configuration**: Environment-based API key management
+- **OpenAI Function Calling**: Uses GPT-4 with function calling to determine when and how to call external APIs
+- **Intelligent Query Processing**: Natural language understanding powered by OpenAI
+- **Real-time Weather Data**: Integrates with OpenWeatherMap API through function calls
+- **Error Handling**: Graceful handling of both AI and API errors
+- **Command-line Interface**: Interactive terminal-based experience
+- **Secure Configuration**: Environment-based API key management for both OpenAI and weather services
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.9 or higher
+- OpenAI API key (from [platform.openai.com](https://platform.openai.com/api-keys))
 - OpenWeatherMap API key (free at [openweathermap.org](https://openweathermap.org/api))
 
 ### Installation
