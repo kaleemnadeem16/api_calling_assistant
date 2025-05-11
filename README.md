@@ -32,36 +32,54 @@ A Python-based AI assistant that demonstrates **OpenAI Function Calling** capabi
    pip install -r requirements.txt
    ```
 
-3. **Configure environment**
-   ```bash
-   # Copy the example environment file
-   cp .env.example .env
+3. **Get your API keys**
    
-   # Edit .env and add your OpenWeatherMap API key
-   # API_KEY=your_openweathermap_api_key_here
-   ```
+   **OpenAI API Key:**
+   - Visit [platform.openai.com](https://platform.openai.com/api-keys)
+   - Sign up or log in to your OpenAI account
+   - Create a new API key
+   - Copy the key (starts with 'sk-')
+   
+   **OpenWeatherMap API Key:**
+   - Visit [openweathermap.org](https://openweathermap.org/api)
+   - Sign up for a free account
+   - Go to "API keys" section
+   - Copy your API key
 
-4. **Run the assistant**
+4. **Configure environment**
+   - Open the `.env` file in the project root
+   - Replace the placeholder values with your actual API keys:
+     ```
+     OPENAI_API_KEY=sk-your_actual_openai_key_here
+     WEATHER_API_KEY=your_actual_weather_key_here
+     ```
+
+5. **Run the assistant**
    ```bash
    python main.py
    ```
 
 ## 💬 Usage
 
-Once running, you can ask weather questions in natural language:
+Experience OpenAI Function Calling in action:
 
 ```
-Welcome to the API Calling Assistant!
-Type 'quit' to exit.
+🌤️  Welcome to the OpenAI Weather Assistant!
+This assistant demonstrates OpenAI Function Calling with external APIs.
+Ask me about the weather in any city around the world!
+Type 'help' for examples or 'quit' to exit.
 
-> What's the weather in London?
-It's currently 20.5°C with clear sky in London. Humidity is 65%.
+Testing API connections...
+✅ Openai: OpenAI API connection successful
+✅ Weather Api: Weather API connection successful
 
-> How's the weather in New York?
-It's currently 18.2°C with scattered clouds in New York. Humidity is 72%.
+🎉 All systems ready! You can start asking about weather.
 
-> Tell me about Tokyo weather
-It's currently 25.1°C with light rain in Tokyo. Humidity is 80%.
+🗣️  You: What's the weather like in London?
+🤖 Assistant: The weather in London is currently 15°C with overcast clouds. It feels like 14°C, and the humidity is at 82%. There's a light breeze with wind speeds of 3.6 m/s from the west-southwest direction.
+
+🗣️  You: How about Tokyo?
+🤖 Assistant: In Tokyo, it's currently 22°C with clear skies! It feels like 21°C with a comfortable humidity level of 55%. The wind is gentle at 2.1 m/s, making it a lovely day in the city.
 
 > quit
 Goodbye!
@@ -72,23 +90,28 @@ Goodbye!
 ```
 api_calling_assistant/
 │
-├── main.py                  # Entry point and CLI interface
-├── api_handler.py           # OpenWeatherMap API integration
-├── parser.py                # Natural language query processing
-├── formatter.py             # Response formatting and presentation
-├── requirements.txt         # Python dependencies
-├── .env.example             # Environment variables template
-├── .gitignore              # Git ignore rules
-└── README.md               # This file
+├── main.py                     # CLI interface and application entry point
+├── openai_assistant.py         # OpenAI integration with function calling
+├── requirements.txt            # Python dependencies (OpenAI, requests, etc.)
+├── .env.example               # Environment variables template
+├── .env                       # Your actual API keys (not committed)
+├── .gitignore                 # Git ignore rules
+├── LICENSE                    # MIT License
+└── README.md                  # This file
 ```
 
 ## 🔧 Configuration
 
-The application uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
+The application uses environment variables for both OpenAI and weather API configuration:
 
 ```env
-# OpenWeatherMap API Configuration
-API_KEY=your_api_key_here
+# OpenAI API Configuration
+OPENAI_API_KEY=sk-your_openai_api_key_here
+
+# OpenWeatherMap API Configuration  
+WEATHER_API_KEY=your_openweathermap_api_key_here
+
+# API Settings
 API_BASE_URL=https://api.openweathermap.org/data/2.5
 DEFAULT_UNITS=metric
 
@@ -96,6 +119,18 @@ DEFAULT_UNITS=metric
 DEBUG=false
 TIMEOUT=10
 ```
+
+## 🤖 How It Works
+
+This project demonstrates **OpenAI Function Calling**, where:
+
+1. **User Query**: You ask about weather in natural language
+2. **AI Processing**: GPT-4 analyzes your query and determines weather data is needed
+3. **Function Call**: OpenAI automatically calls the `get_current_weather` function
+4. **API Integration**: The function fetches real-time data from OpenWeatherMap
+5. **AI Response**: GPT-4 formats the data into a natural, conversational response
+
+The AI decides when to call external APIs - showcasing intelligent API orchestration!
 
 ## 🛠️ Development
 
