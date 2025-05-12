@@ -1,22 +1,22 @@
 """
-Main application entry point for the OpenAI API Calling Assistant.
+Main application entry point for the Multi-Tool OpenAI Assistant.
 
 This module provides the command-line interface for an AI assistant that
-demonstrates OpenAI's function calling capabilities with external APIs.
+demonstrates OpenAI's function calling capabilities with multiple external APIs.
 """
 
 import sys
 import os
-from openai_assistant import OpenAIAssistant
+from openai_assistant import MultiToolAssistant
 
 
-class WeatherChatBot:
-    """Main application class for the OpenAI-powered weather assistant."""
+class MultiToolChatBot:
+    """Main application class for the multi-tool OpenAI assistant."""
     
     def __init__(self):
         """Initialize the chat bot with OpenAI assistant."""
         try:
-            self.assistant = OpenAIAssistant()
+            self.assistant = MultiToolAssistant()
             self.is_running = False
             
         except ValueError as e:
@@ -36,27 +36,35 @@ class WeatherChatBot:
         self.is_running = True
         
         # Display welcome message
-        print("🌤️  Welcome to the OpenAI Weather Assistant!")
-        print("This assistant demonstrates OpenAI Function Calling with external APIs.")
-        print("Ask me about the weather in any city around the world!")
-        print("Type 'help' for examples or 'quit' to exit.\n")
+        config = self.assistant.get_config_info()
+        print("🤖 Welcome to the Multi-Tool OpenAI Assistant!")
+        print("This assistant demonstrates OpenAI Function Calling with multiple APIs.")
+        print(f"Model: {config['openai_model']} | Functions: {config['total_functions']} available")
+        print("\nI can help you with:")
+        print("🌤️  Weather information for any city")
+        if config['enabled_functions']['time']:
+            print("⏰ Current time and timezone information")
+        if config['enabled_functions']['location']:
+            print("📍 Location detection and geographic information")
+        print("\nType 'help' for examples or 'quit' to exit.\n")
         
         # Test API connections
         print("Testing API connections...")
         connection_tests = self.assistant.test_connection()
         
         all_connected = True
-        for api, result in connection_tests.items():
-            status = "✅" if result["success"] else "❌"
-            print(f"{status} {api.replace('_', ' ').title()}: {result['message']}")
-            if not result["success"]:
-                all_connected = False
+        for service, result in connection_tests.items():
+            if service != "configuration":
+                status = "✅" if result["success"] else "❌"
+                print(f"{status} {service.replace('_', ' ').title()}: {result['message']}")
+                if not result["success"]:
+                    all_connected = False
         
         if not all_connected:
-            print("\n⚠️  Some connections failed. The assistant may not work properly.")
+            print("\n⚠️  Some connections failed. Some features may not work properly.")
             print("Please check your API keys and internet connection.\n")
         else:
-            print("\n🎉 All systems ready! You can start asking about weather.\n")
+            print("\n🎉 All systems ready! You can start asking questions.\n")
         
         # Main interaction loop
         while self.is_running:
@@ -69,7 +77,7 @@ class WeatherChatBot:
                 print(f"An unexpected error occurred: {e}")
                 print("Please try again or type 'quit' to exit.")
         
-        print("Thank you for using the OpenAI Weather Assistant! 🌟")
+        print("Thank you for using the Multi-Tool OpenAI Assistant! 🌟")
     
     def _handle_user_interaction(self):
         """Handle a single user interaction cycle."""
@@ -113,36 +121,59 @@ class WeatherChatBot:
             self._test_connections()
             return True
         
-        elif input_lower in ['info', 'about']:
-            self._show_info()
+        elif input_lower in ['info', 'about', 'config', 'configuration']:
+            self._show_config()
             return True
         
         return False
     
     def _show_help(self):
         """Display help information with examples."""
-        help_text = """
-🔧 OpenAI Weather Assistant Help
+        config = self.assistant.get_config_info()
+        
+        help_text = f"""
+🔧 Multi-Tool OpenAI Assistant Help
 
-This assistant uses OpenAI's GPT-4 with function calling to fetch weather data.
-You can ask about weather in natural language!
+This assistant uses OpenAI's {config['openai_model']} with function calling to access multiple services.
+You can ask questions in natural language!
 
-Example queries:
+🌤️ Weather queries:
 • "What's the weather like in London?"
 • "How's the weather in New York today?"
-• "Tell me about the weather in Tokyo"
 • "Is it raining in Paris?"
-• "What's the temperature in Sydney?"
-• "Weather forecast for Berlin"
+• "What's the temperature in Tokyo?"
+"""
+
+        if config['enabled_functions']['time']:
+            help_text += """
+⏰ Time & timezone queries:
+• "What time is it?"
+• "What time is it in London?"
+• "What's the current date?"
+• "What timezone is New York in?"
+"""
+
+        if config['enabled_functions']['location']:
+            help_text += """
+📍 Location queries:
+• "Where am I?"
+• "What's my current location?"
+• "Tell me about Paris, France"
+• "What are the coordinates of Tokyo?"
+"""
+
+        help_text += """
+🔗 Combined queries:
+• "What's the weather like where I am?"
+• "What time is it in London and what's the weather there?"
 
 Special commands:
 • 'help' or 'h' - Show this help message
 • 'test' - Test API connections
-• 'info' - Show technical information
+• 'config' - Show current configuration
 • 'quit' or 'q' - Exit the assistant
 
-💡 Tip: You can ask about weather in any way that feels natural to you!
-The AI will understand your intent and call the appropriate weather API.
+💡 Tip: Ask questions naturally! The AI will determine which tools to use.
         """
         print(help_text)
     
@@ -152,32 +183,38 @@ The AI will understand your intent and call the appropriate weather API.
         
         results = self.assistant.test_connection()
         
-        for api, result in results.items():
-            status = "✅ Connected" if result["success"] else "❌ Failed"
-            print(f"{api.replace('_', ' ').title()}: {status}")
-            print(f"   Message: {result['message']}\n")
+        for service, result in results.items():
+            if service != "configuration":
+                status = "✅ Connected" if result["success"] else "❌ Failed"
+                print(f"{service.replace('_', ' ').title()}: {status}")
+                print(f"   Message: {result['message']}\n")
+        
+        # Show configuration
+        config = results.get("configuration", {})
+        print("Current Configuration:")
+        print(f"   Model: {config.get('model', 'Unknown')}")
+        print(f"   Temperature: {config.get('temperature', 'Unknown')}")
+        print(f"   Max Tokens: {config.get('max_tokens', 'Unknown')}")
+        print(f"   Functions Available: {config.get('functions_enabled', 'Unknown')}")
     
-    def _show_info(self):
-        """Display technical information about the assistant."""
-        info_text = """
-🤖 OpenAI Weather Assistant - Technical Info
-
-This assistant demonstrates:
-• OpenAI Function Calling - AI decides when to call external APIs
-• GPT-4 Turbo integration for natural language understanding  
-• Weather API integration through function calls
-• Real-time weather data from OpenWeatherMap
-
-Architecture:
-1. User asks a question in natural language
-2. OpenAI GPT-4 processes the query and decides if weather data is needed
-3. If needed, GPT-4 calls the get_current_weather function
-4. The function fetches real-time data from OpenWeatherMap API
-5. GPT-4 formats the data into a natural, conversational response
-
-This showcases the power of AI-driven API orchestration!
-        """
-        print(info_text)
+    def _show_config(self):
+        """Display current configuration."""
+        config = self.assistant.get_config_info()
+        
+        print("🔧 Current Configuration:")
+        print(f"   OpenAI Model: {config['openai_model']}")
+        print(f"   Temperature: {config['temperature']}")
+        print(f"   Max Tokens: {config['max_tokens']}")
+        print(f"   Weather Units: {config['weather_units']}")
+        print(f"   Timeout: {config['timeout']}s")
+        print(f"   Debug Mode: {'On' if config['debug_mode'] else 'Off'}")
+        print()
+        print("🔧 Enabled Functions:")
+        for func_type, enabled in config['enabled_functions'].items():
+            status = "✅ Enabled" if enabled else "❌ Disabled"
+            print(f"   {func_type.title()}: {status}")
+        print(f"\nTotal Functions Available: {config['total_functions']}")
+        print("\n💡 You can modify these settings in your .env file!")
     
     def process_single_query(self, query: str) -> str:
         """
@@ -200,10 +237,10 @@ This showcases the power of AI-driven API orchestration!
 def main():
     """Main entry point for the application."""
     try:
-        chatbot = WeatherChatBot()
+        chatbot = MultiToolChatBot()
         chatbot.start()
     except Exception as e:
-        print(f"Failed to start the OpenAI Weather Assistant: {e}")
+        print(f"Failed to start the Multi-Tool OpenAI Assistant: {e}")
         sys.exit(1)
 
 
