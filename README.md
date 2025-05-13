@@ -1,15 +1,17 @@
-# API Calling Assistant
+# LangChain API Calling Assistant
 
-A Python-based AI assistant that demonstrates **OpenAI Function Calling** capabilities by integrating with external APIs. This project showcases how to use OpenAI's GPT models to intelligently call external APIs (OpenWeatherMap) based on natural language queries.
+A Python-based AI assistant that demonstrates **LangChain Tool Calling** capabilities by integrating with multiple external APIs. This project showcases how to use LangChain agents with OpenAI models to intelligently call external tools and services based on natural language queries.
 
 ## 🌟 Features
 
-- **OpenAI Function Calling**: Uses GPT-4 with function calling to determine when and how to call external APIs
-- **Intelligent Query Processing**: Natural language understanding powered by OpenAI
-- **Real-time Weather Data**: Integrates with OpenWeatherMap API through function calls
+- **LangChain Tool Calling**: Uses LangChain agents with OpenAI models to determine when and how to call external tools
+- **Multi-Tool Integration**: Weather data, time services, and location detection through intelligent tool selection
+- **Intelligent Query Processing**: Natural language understanding powered by OpenAI via LangChain
+- **Real-time Data**: Integrates with OpenWeatherMap API, timezone services, and location APIs
+- **Agent-based Architecture**: LangChain agent orchestration for complex multi-tool workflows
 - **Error Handling**: Graceful handling of both AI and API errors
 - **Command-line Interface**: Interactive terminal-based experience
-- **Secure Configuration**: Environment-based API key management for both OpenAI and weather services
+- **Secure Configuration**: Environment-based API key management for all services
 
 ## 🚀 Quick Start
 
@@ -49,169 +51,194 @@ A Python-based AI assistant that demonstrates **OpenAI Function Calling** capabi
 4. **Configure environment**
    - Open the `.env` file in the project root
    - Replace the placeholder values with your actual API keys:
-     ```
-     OPENAI_API_KEY=sk-your_actual_openai_key_here
-     WEATHER_API_KEY=your_actual_weather_key_here
-     ```
+   
+   ```env
+   # OpenAI Configuration
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_MODEL=gpt-3.5-turbo
+   OPENAI_TEMPERATURE=0.7
+   OPENAI_MAX_TOKENS=500
+   
+   # Weather API Configuration
+   WEATHER_API_KEY=your_openweathermap_api_key_here
+   API_BASE_URL=https://api.openweathermap.org/data/2.5
+   DEFAULT_UNITS=metric
+   
+   # Feature Flags
+   ENABLE_TIME_FUNCTIONS=true
+   ENABLE_LOCATION_FUNCTIONS=true
+   
+   # Debug and Development
+   DEBUG=false
+   TIMEOUT=10
+   ```
 
 5. **Run the assistant**
    ```bash
    python main.py
    ```
 
-## 💬 Usage
+## 🛠️ Usage Examples
 
-Experience OpenAI Function Calling in action:
-
+### Weather Queries
 ```
-🌤️  Welcome to the OpenAI Weather Assistant!
-This assistant demonstrates OpenAI Function Calling with external APIs.
-Ask me about the weather in any city around the world!
-Type 'help' for examples or 'quit' to exit.
+You: What's the weather like in London?
+🤖: The current weather in London, UK is partly cloudy with a temperature of 15°C...
 
-Testing API connections...
-✅ Openai: OpenAI API connection successful
-✅ Weather Api: Weather API connection successful
-
-🎉 All systems ready! You can start asking about weather.
-
-🗣️  You: What's the weather like in London?
-🤖 Assistant: The weather in London is currently 15°C with overcast clouds. It feels like 14°C, and the humidity is at 82%. There's a light breeze with wind speeds of 3.6 m/s from the west-southwest direction.
-
-🗣️  You: How about Tokyo?
-🤖 Assistant: In Tokyo, it's currently 22°C with clear skies! It feels like 21°C with a comfortable humidity level of 55%. The wind is gentle at 2.1 m/s, making it a lovely day in the city.
-
-> quit
-Goodbye!
+You: Is it raining in Tokyo?
+🤖: Let me check the current weather in Tokyo... No, it's currently clear with 22°C...
 ```
 
-## 🏗️ Project Structure
+### Time and Location Queries
+```
+You: What time is it?
+🤖: The current time is 2024-01-15 14:30:25 (Local timezone)...
+
+You: Where am I?
+🤖: Based on your IP address, you appear to be in New York, NY, United States...
+
+You: What's the weather like where I am?
+🤖: Let me detect your location first... You're in New York, NY. The current weather there is...
+```
+
+### Complex Multi-Tool Queries
+```
+You: I'm planning to go outside. Can you tell me the weather where I am and what time it is?
+🤖: I'll help you with that! Let me check your location, the weather, and current time...
+```
+
+## 🏗️ Architecture
+
+### LangChain Integration
+- **Agent Executor**: Orchestrates tool selection and execution
+- **OpenAI Tools Agent**: Uses OpenAI models for decision making
+- **Custom Tools**: Weather, time, and location tools built with LangChain BaseTool
+- **Memory Management**: Conversation buffer for context awareness
+
+### Available Tools
+
+1. **WeatherTool**: Get current weather information for any city
+2. **TimeTool**: Get current time with timezone support
+3. **MyLocationTool**: Detect user's current location via IP
+4. **LocationInfoTool**: Get detailed information about specific locations
+
+### Tool Calling Flow
+```
+User Query → LangChain Agent → Tool Selection → Tool Execution → Response Generation
+```
+
+## 📁 Project Structure
 
 ```
 api_calling_assistant/
-│
-├── main.py                     # CLI interface and application entry point
-├── openai_assistant.py         # OpenAI integration with function calling
-├── requirements.txt            # Python dependencies (OpenAI, requests, etc.)
-├── .env.example               # Environment variables template
-├── .env                       # Your actual API keys (not committed)
-├── .gitignore                 # Git ignore rules
-├── LICENSE                    # MIT License
-└── README.md                  # This file
+├── main.py                    # Main CLI application
+├── openai_assistant.py        # LangChain assistant with tool definitions
+├── test_assistant.py          # Comprehensive test suite
+├── requirements.txt           # Python dependencies
+├── .env.example              # Environment configuration template
+├── .env                      # Your actual environment configuration
+├── .gitignore               # Git ignore rules
+├── LICENSE                  # MIT License
+├── README.md               # This file
+└── docs/                   # Documentation (local only)
+    ├── project_overview.md
+    ├── development_rules.md
+    └── architecture.md
 ```
 
 ## 🔧 Configuration
 
-The application uses environment variables for both OpenAI and weather API configuration:
+### Environment Variables
 
-```env
-# OpenAI API Configuration
-OPENAI_API_KEY=sk-your_openai_api_key_here
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OPENAI_API_KEY` | Your OpenAI API key | - | Yes |
+| `OPENAI_MODEL` | OpenAI model to use | `gpt-3.5-turbo` | No |
+| `OPENAI_TEMPERATURE` | Model temperature (0-1) | `0.7` | No |
+| `OPENAI_MAX_TOKENS` | Maximum response tokens | `500` | No |
+| `WEATHER_API_KEY` | OpenWeatherMap API key | - | Yes |
+| `API_BASE_URL` | Weather API base URL | OpenWeatherMap | No |
+| `DEFAULT_UNITS` | Temperature units | `metric` | No |
+| `ENABLE_TIME_FUNCTIONS` | Enable time tools | `true` | No |
+| `ENABLE_LOCATION_FUNCTIONS` | Enable location tools | `true` | No |
+| `DEBUG` | Enable debug mode | `false` | No |
+| `TIMEOUT` | API timeout seconds | `10` | No |
 
-# OpenWeatherMap API Configuration  
-WEATHER_API_KEY=your_openweathermap_api_key_here
+### Model Options
+- `gpt-3.5-turbo` (recommended for cost efficiency)
+- `gpt-4` (for enhanced capabilities)
+- `gpt-4-turbo-preview` (latest features)
 
-# API Settings
-API_BASE_URL=https://api.openweathermap.org/data/2.5
-DEFAULT_UNITS=metric
+## 🧪 Testing
 
-# Application Settings
-DEBUG=false
-TIMEOUT=10
-```
-
-## 🤖 How It Works
-
-This project demonstrates **OpenAI Function Calling**, where:
-
-1. **User Query**: You ask about weather in natural language
-2. **AI Processing**: GPT-4 analyzes your query and determines weather data is needed
-3. **Function Call**: OpenAI automatically calls the `get_current_weather` function
-4. **API Integration**: The function fetches real-time data from OpenWeatherMap
-5. **AI Response**: GPT-4 formats the data into a natural, conversational response
-
-The AI decides when to call external APIs - showcasing intelligent API orchestration!
-
-## 🛠️ Development
-
-### Running Tests
+Run the comprehensive test suite:
 
 ```bash
-# Install development dependencies
-pip install -r requirements.txt
-
-# Run tests (when implemented)
-python -m pytest tests/
+python test_assistant.py
 ```
 
-### Code Style
+The test suite includes:
+- Initialization tests
+- Tool calling functionality
+- Error handling
+- Response formatting
+- LangChain agent behavior
 
-This project follows PEP 8 style guidelines. Format code using:
+## 🐛 Troubleshooting
 
-```bash
-# Install formatting tools
-pip install black flake8
+### Common Issues
 
-# Format code
-black .
+1. **"OpenAI API key not configured"**
+   - Ensure `OPENAI_API_KEY` is set in your `.env` file
+   - Verify the key is valid and has credits
 
-# Check style
-flake8 .
-```
+2. **"Weather API key not configured"**
+   - Ensure `WEATHER_API_KEY` is set in your `.env` file
+   - Verify the key is active on OpenWeatherMap
 
-## 📚 API Reference
+3. **"ModuleNotFoundError: No module named 'langchain'"**
+   - Run `pip install -r requirements.txt`
+   - Ensure you're using the correct Python environment
 
-### Supported Queries
+4. **Tool calling not working**
+   - Check your OpenAI API key has access to function calling
+   - Verify the model supports tool calling (gpt-3.5-turbo or gpt-4)
+   - Enable debug mode: `DEBUG=true` in `.env`
 
-The assistant understands various ways to ask about weather:
-
-- "What's the weather in [city]?"
-- "How's the weather in [city]?"
-- "Tell me about the weather in [city]"
-- "Weather for [city]"
-- "[city] weather"
-
-### Error Handling
-
-The assistant handles common scenarios gracefully:
-
-- **Invalid city names**: Suggests checking spelling
-- **Network issues**: Informs about connectivity problems
-- **API errors**: Provides user-friendly error messages
-- **Missing API key**: Guides through configuration setup
-
-## 🔒 Security
-
-- API keys are stored in environment variables
-- No sensitive data is logged
-- Input validation prevents injection attacks
-- Rate limiting respects API provider limits
+5. **Location detection issues**
+   - Location detection uses IP geolocation (approximate)
+   - May not work accurately with VPNs or corporate networks
+   - Try specific location queries instead
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes and test thoroughly
+4. Commit with clear messages: `git commit -m "Add: new feature description"`
+5. Push to your fork: `git push origin feature/your-feature`
+6. Create a Pull Request
 
-## 📝 License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- [OpenWeatherMap](https://openweathermap.org/) for providing weather data API
-- Python community for excellent libraries and documentation
+- **LangChain** for the excellent tool calling framework
+- **OpenAI** for the powerful GPT models and function calling capabilities
+- **OpenWeatherMap** for providing free weather data API
+- **Python Community** for the amazing ecosystem of libraries
 
-## 📞 Support
+## 🔗 Links
 
-If you encounter any issues or have questions:
-
-1. Check the [issues page](https://github.com/kaleemnadeem16/api_calling_assistant/issues)
-2. Create a new issue with detailed information
-3. Reach out via email: kaleem.nadeem@gmail.com
+- [LangChain Documentation](https://python.langchain.com/)
+- [OpenAI API Documentation](https://platform.openai.com/docs)
+- [OpenWeatherMap API](https://openweathermap.org/api)
+- [Project Repository](https://github.com/kaleemnadeem16/api_calling_assistant)
 
 ---
 
-**Made with ❤️ by [kaleemnadeem16](https://github.com/kaleemnadeem16)**
+**Happy Coding! 🚀**
+
+*This project demonstrates the power of LangChain's tool calling capabilities for building intelligent, multi-service AI assistants.*

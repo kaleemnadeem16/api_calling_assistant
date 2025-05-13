@@ -1,8 +1,8 @@
 """
-OpenAI-powered assistant with multiple function calling capabilities.
+LangChain-powered assistant with multiple tool calling capabilities.
 
-This module demonstrates OpenAI's function calling feature by integrating
-with multiple external APIs and services based on user queries processed by GPT models.
+This module demonstrates LangChain's tool calling feature by integrating
+with multiple external APIs and services based on user queries processed by OpenAI models.
 """
 
 import os
@@ -10,140 +10,242 @@ import json
 import datetime
 import requests
 import geocoder
-from typing import Dict, List, Optional, Any
-from openai import OpenAI
+from typing import Dict, List, Optional, Any, Type
+
+from langchain.tools import BaseTool
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain.memory import ConversationBufferMemory
+from pydantic import BaseModel, Field
+
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 
-class MultiToolAssistant:
-    """OpenAI-powered assistant with multiple tool/function calling capabilities."""
+class WeatherInput(BaseModel):
+    """Input schema for weather tool."""
+    city: str = Field(description="The city name, e.g., London, New York, Tokyo")
+    country: Optional[str] = Field(default=None, description="Optional country code for more specific results, e.g., US, UK, JP")
+    units: Optional[str] = Field(default="metric", description="Temperature units to use (metric for Celsius, imperial for Fahrenheit)")
+
+
+class TimeInput(BaseModel):
+    """Input schema for time tool."""
+    timezone: Optional[str] = Field(default=None, description="Optional timezone (e.g., 'UTC', 'US/Eastern', 'Europe/London')")
+    format: str = Field(default="full", description="Format of the time output: full, date, time, or timestamp")
+
+
+class LocationInput(BaseModel):
+    """Input schema for location tool."""
+    location: str = Field(description="City name or location to get information for")
+
+
+class WeatherTool(BaseTool):
+    """Tool for getting current weather information."""
+    name: str = "get_current_weather"
+    description: str = "Get the current weather information for a specific city"
+    args_schema: Type[BaseModel] = WeatherInput
     
-    def __init__(self):
-        """Initialize the assistant with API credentials and function definitions."""
-        # Load configuration from environment
-        self.openai_client = OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY')
-        )
-        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
-        self.temperature = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
-        self.max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '500'))
-        
-        self.weather_api_key = os.getenv('WEATHER_API_KEY')
-        self.base_url = os.getenv('API_BASE_URL', 'https://api.openweathermap.org/data/2.5')
-        self.default_units = os.getenv('DEFAULT_UNITS', 'metric')
-        self.timeout = int(os.getenv('TIMEOUT', '10'))
-        self.debug = os.getenv('DEBUG', 'false').lower() == 'true'
-        
-        # Feature flags
-        self.enable_time_functions = os.getenv('ENABLE_TIME_FUNCTIONS', 'true').lower() == 'true'
-        self.enable_location_functions = os.getenv('ENABLE_LOCATION_FUNCTIONS', 'true').lower() == 'true'
-        
-        # Validate configuration
-        if not self.openai_client.api_key:
-            raise ValueError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.")
-        
-        if not self.weather_api_key:
-            raise ValueError("Weather API key not configured. Please set WEATHER_API_KEY in your .env file.")
-        
-        # Define available functions for OpenAI
-        self.functions = self._build_function_definitions()
-    
-    def _build_function_definitions(self) -> List[Dict]:
-        """Build function definitions based on enabled features."""
-        functions = [
-            {
-                "name": "get_current_weather",
-                "description": "Get the current weather information for a specific city",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "city": {
-                            "type": "string",
-                            "description": "The city name, e.g., London, New York, Tokyo"
-                        },
-                        "country": {
-                            "type": "string",
-                            "description": "Optional country code for more specific results, e.g., US, UK, JP"
-                        },
-                        "units": {
-                            "type": "string",
-                            "enum": ["metric", "imperial", "standard"],
-                            "description": "Temperature units to use (metric for Celsius, imperial for Fahrenheit)"
-                        }
-                    },
-                    "required": ["city"]
-                }
+    def _run(self, city: str, country: Optional[str] = None, units: Optional[str] = None) -> str:
+        """Execute the weather tool."""
+        try:
+            weather_api_key = os.getenv('WEATHER_API_KEY')
+            base_url = os.getenv('API_BASE_URL', 'https://api.openweathermap.org/data/2.5')
+            timeout = int(os.getenv('TIMEOUT', '10'))
+            
+            # Prepare query parameter
+            query = city
+            if country:
+                query = f"{city},{country}"
+            
+            # Use provided units or default
+            units = units or "metric"
+            
+            # Prepare request parameters
+            params = {
+                'q': query,
+                'appid': weather_api_key,
+                'units': units
             }
-        ]
-        
-        if self.enable_time_functions:
-            functions.extend([
-                {
-                    "name": "get_current_time",
-                    "description": "Get the current date and time",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "timezone": {
-                                "type": "string",
-                                "description": "Optional timezone (e.g., 'UTC', 'US/Eastern', 'Europe/London')"
-                            },
-                            "format": {
-                                "type": "string",
-                                "enum": ["full", "date", "time", "timestamp"],
-                                "description": "Format of the time output"
-                            }
-                        },
-                        "required": []
-                    }
-                },
-                {
-                    "name": "get_timezone_info",
-                    "description": "Get timezone information for a specific city or location",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "City name or location to get timezone for"
-                            }
-                        },
-                        "required": ["location"]
+            
+            # Make API request
+            response = requests.get(
+                f"{base_url}/weather",
+                params=params,
+                timeout=timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Format the response for the agent
+                result = {
+                    "success": True,
+                    "city": data.get("name"),
+                    "country": data.get("sys", {}).get("country"),
+                    "temperature": data.get("main", {}).get("temp"),
+                    "feels_like": data.get("main", {}).get("feels_like"),
+                    "humidity": data.get("main", {}).get("humidity"),
+                    "pressure": data.get("main", {}).get("pressure"),
+                    "description": data.get("weather", [{}])[0].get("description"),
+                    "wind_speed": data.get("wind", {}).get("speed"),
+                    "units": units
+                }
+                
+                return json.dumps(result)
+            else:
+                error_data = response.json() if response.content else {}
+                return json.dumps({
+                    "success": False,
+                    "error": f"Weather API error: {error_data.get('message', 'Unknown error')}"
+                })
+                
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "error": f"Weather lookup failed: {str(e)}"
+            })
+
+
+class TimeTool(BaseTool):
+    """Tool for getting current time information."""
+    name: str = "get_current_time"
+    description: str = "Get the current date and time, optionally for a specific timezone"
+    args_schema: Type[BaseModel] = TimeInput
+    
+    def _run(self, timezone: Optional[str] = None, format: str = "full") -> str:
+        """Execute the time tool."""
+        try:
+            import pytz
+            
+            # Get current time
+            if timezone:
+                try:
+                    tz = pytz.timezone(timezone)
+                    current_time = datetime.datetime.now(tz)
+                except pytz.exceptions.UnknownTimeZoneError:
+                    current_time = datetime.datetime.utcnow()
+                    timezone = "UTC (fallback - invalid timezone provided)"
+            else:
+                current_time = datetime.datetime.now()
+                timezone = "Local"
+            
+            # Format based on request
+            if format == "date":
+                formatted_time = current_time.strftime("%Y-%m-%d")
+            elif format == "time":
+                formatted_time = current_time.strftime("%H:%M:%S")
+            elif format == "timestamp":
+                formatted_time = current_time.isoformat()
+            else:  # full
+                formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S %Z")
+            
+            result = {
+                "success": True,
+                "current_time": formatted_time,
+                "timezone": timezone,
+                "day_of_week": current_time.strftime("%A"),
+                "unix_timestamp": int(current_time.timestamp())
+            }
+            
+            return json.dumps(result)
+            
+        except ImportError:
+            # Fallback if pytz is not available
+            current_time = datetime.datetime.now()
+            result = {
+                "success": True,
+                "current_time": current_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "timezone": "Local (pytz not available)",
+                "day_of_week": current_time.strftime("%A"),
+                "unix_timestamp": int(current_time.timestamp())
+            }
+            return json.dumps(result)
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "error": f"Time error: {str(e)}"
+            })
+
+
+class MyLocationTool(BaseTool):
+    """Tool for getting user's current location."""
+    name: str = "get_my_location"
+    description: str = "Get the user's current approximate location based on IP address"
+    
+    def _run(self) -> str:
+        """Execute the location detection tool."""
+        try:
+            # Get location based on IP
+            g = geocoder.ip('me')
+            
+            if g.ok:
+                result = {
+                    "success": True,
+                    "city": g.city,
+                    "region": g.state,
+                    "country": g.country,
+                    "coordinates": {"latitude": g.latlng[0], "longitude": g.latlng[1]},
+                    "ip_address": g.ip,
+                    "note": "Location determined by IP address (approximate)"
+                }
+            else:
+                result = {
+                    "success": False,
+                    "error": "Could not determine location from IP address"
+                }
+            
+            return json.dumps(result)
+                
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "error": f"Location detection error: {str(e)}"
+            })
+
+
+class LocationInfoTool(BaseTool):
+    """Tool for getting detailed location information."""
+    name: str = "get_location_info"
+    description: str = "Get detailed information about a specific location (coordinates, country, etc.)"
+    args_schema: Type[BaseModel] = LocationInput
+    
+    def _run(self, location: str) -> str:
+        """Execute the location info tool."""
+        try:
+            # Use geocoder to get detailed location info
+            g = geocoder.osm(location)
+            
+            if g.ok:
+                result = {
+                    "success": True,
+                    "address": g.address,
+                    "city": g.city,
+                    "state": g.state,
+                    "country": g.country,
+                    "postal_code": g.postal,
+                    "coordinates": {
+                        "latitude": g.latlng[0],
+                        "longitude": g.latlng[1]
                     }
                 }
-            ])
-        
-        if self.enable_location_functions:
-            functions.extend([
-                {
-                    "name": "get_my_location",
-                    "description": "Get the user's current approximate location based on IP address",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                },
-                {
-                    "name": "get_location_info",
-                    "description": "Get detailed information about a specific location (coordinates, country, etc.)",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "City name or address to get information for"
-                            }
-                        },
-                        "required": ["location"]
-                    }
+            else:
+                result = {
+                    "success": False,
+                    "error": f"Could not find detailed information for: {location}"
                 }
-            ])
-        
-        return functions
+            
+            return json.dumps(result)
+                
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "error": f"Location info error: {str(e)}"
+            })
     
     def process_user_query(self, user_input: str) -> str:
         """
@@ -619,31 +721,199 @@ Available functions: {', '.join([f['name'] for f in self.functions])}"""
         }
 
 
+class LangChainToolAssistant:
+    """LangChain-powered assistant with multiple tool calling capabilities."""
+    
+    def __init__(self):
+        """Initialize the assistant with API credentials and tools."""
+        # Load configuration from environment
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
+        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        self.temperature = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
+        self.max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '500'))
+        
+        self.weather_api_key = os.getenv('WEATHER_API_KEY')
+        self.base_url = os.getenv('API_BASE_URL', 'https://api.openweathermap.org/data/2.5')
+        self.default_units = os.getenv('DEFAULT_UNITS', 'metric')
+        self.timeout = int(os.getenv('TIMEOUT', '10'))
+        self.debug = os.getenv('DEBUG', 'false').lower() == 'true'
+        
+        # Feature flags
+        self.enable_time_functions = os.getenv('ENABLE_TIME_FUNCTIONS', 'true').lower() == 'true'
+        self.enable_location_functions = os.getenv('ENABLE_LOCATION_FUNCTIONS', 'true').lower() == 'true'
+        
+        # Validate configuration
+        if not self.openai_api_key:
+            raise ValueError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.")
+        
+        if not self.weather_api_key:
+            raise ValueError("Weather API key not configured. Please set WEATHER_API_KEY in your .env file.")
+        
+        # Initialize LangChain components
+        self.llm = ChatOpenAI(
+            model=self.model,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            openai_api_key=self.openai_api_key
+        )
+        
+        # Initialize tools
+        self.tools = self._build_tools()
+        
+        # Create prompt template
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a helpful assistant that can access multiple tools to provide information.
+            
+You have access to the following tools:
+- Weather information for any city
+- Current time and timezone information
+- Location detection and information
+
+Always use the appropriate tool when the user asks for specific information. Be conversational and helpful.
+When using tools, provide context about what you're doing and explain the results clearly.
+
+Current capabilities:
+- Weather: Get current weather for any city worldwide
+- Time: Get current time, optionally with timezone conversion
+- Location: Detect user's location or get info about specific locations
+
+If the user asks about something you can't do with your tools, politely explain what you can help with instead."""),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}")
+        ])
+        
+        # Create agent
+        self.agent = create_tool_calling_agent(
+            llm=self.llm,
+            tools=self.tools,
+            prompt=self.prompt
+        )
+        
+        # Create agent executor with conversation memory
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
+        )
+        
+        self.agent_executor = AgentExecutor(
+            agent=self.agent,
+            tools=self.tools,
+            verbose=self.debug,
+            handle_parsing_errors=True,
+            max_iterations=3
+        )
+    
+    def _build_tools(self) -> List[BaseTool]:
+        """Build the list of available tools based on enabled features."""
+        tools = [WeatherTool()]
+        
+        if self.enable_time_functions:
+            tools.append(TimeTool())
+        
+        if self.enable_location_functions:
+            tools.extend([MyLocationTool(), LocationInfoTool()])
+        
+        return tools
+    
+    def chat(self, user_input: str, conversation_history: Optional[List[BaseMessage]] = None) -> Dict[str, Any]:
+        """
+        Process user input and return response using LangChain agent.
+        
+        Args:
+            user_input: The user's message/query
+            conversation_history: Optional conversation context
+            
+        Returns:
+            Dictionary containing response and metadata
+        """
+        try:
+            if self.debug:
+                print(f"\n=== Processing User Input ===")
+                print(f"Input: {user_input}")
+                print(f"Available tools: {[tool.name for tool in self.tools]}")
+            
+            # Execute the agent
+            result = self.agent_executor.invoke({"input": user_input})
+            
+            response = {
+                "success": True,
+                "response": result["output"],
+                "tools_used": [],  # LangChain handles this internally
+                "metadata": {
+                    "model": self.model,
+                    "temperature": self.temperature,
+                    "tools_available": [tool.name for tool in self.tools]
+                }
+            }
+            
+            if self.debug:
+                print(f"\n=== Agent Response ===")
+                print(f"Response: {response['response']}")
+            
+            return response
+            
+        except Exception as e:
+            error_response = {
+                "success": False,
+                "error": f"Assistant error: {str(e)}",
+                "response": "I encountered an error while processing your request. Please try again or rephrase your question.",
+                "tools_used": [],
+                "metadata": {
+                    "model": self.model,
+                    "error_type": type(e).__name__
+                }
+            }
+            
+            if self.debug:
+                print(f"\n=== Error ===")
+                print(f"Error: {str(e)}")
+                import traceback
+                traceback.print_exc()
+            
+            return error_response
+    
+    def get_available_capabilities(self) -> Dict[str, Any]:
+        """Get information about available capabilities."""
+        capabilities = {
+            "tools": [
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "enabled": True
+                }
+                for tool in self.tools
+            ],
+            "model_info": {
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens
+            },
+            "features": {
+                "weather": True,
+                "time_functions": self.enable_time_functions,
+                "location_functions": self.enable_location_functions
+            }
+        }
+        
+        return capabilities
+
+
 # Example usage and testing
 if __name__ == "__main__":
     try:
-        assistant = MultiToolAssistant()
+        assistant = LangChainToolAssistant()
         
-        print("Multi-Tool OpenAI Assistant Test")
+        print("LangChain Tool Assistant Test")
         print("=" * 40)
         
         # Show configuration
-        config = assistant.get_config_info()
-        print(f"Model: {config['openai_model']}")
-        print(f"Temperature: {config['temperature']}")
-        print(f"Enabled functions: {config['total_functions']}")
+        config = assistant.get_available_capabilities()
+        print(f"Model: {config['model_info']['model']}")
+        print(f"Temperature: {config['model_info']['temperature']}")
+        print(f"Available tools: {[tool['name'] for tool in config['tools']]}")
         print()
         
-        # Test connections
-        print("Testing API connections...")
-        test_results = assistant.test_connection()
-        
-        for service, result in test_results.items():
-            if service != "configuration":
-                status = "✓" if result["success"] else "✗"
-                print(f"{status} {service.replace('_', ' ').title()}: {result['message']}")
-        
-        print("\nTesting multi-tool queries...")
+        print("Testing LangChain tool calling...")
         
         # Test various types of queries
         test_queries = [
@@ -655,8 +925,11 @@ if __name__ == "__main__":
         
         for query in test_queries:
             print(f"\nQuery: {query}")
-            response = assistant.process_user_query(query)
-            print(f"Response: {response}")
+            response = assistant.chat(query)
+            if response["success"]:
+                print(f"Response: {response['response']}")
+            else:
+                print(f"Error: {response['error']}")
             
     except Exception as e:
         print(f"Error initializing assistant: {e}")

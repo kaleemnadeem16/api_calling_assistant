@@ -1,246 +1,229 @@
+#!/usr/bin/env python3
 """
-Main application entry point for the Multi-Tool OpenAI Assistant.
+LangChain API Calling Assistant - Main CLI Interface
 
-This module provides the command-line interface for an AI assistant that
-demonstrates OpenAI's function calling capabilities with multiple external APIs.
+A command-line interface for demonstrating LangChain's tool calling capabilities
+with multiple external APIs including weather, time, and location services.
 """
 
-import sys
 import os
-from openai_assistant import MultiToolAssistant
+import sys
+import json
+from typing import Dict, Any, List
+
+# Add the current directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from openai_assistant import LangChainToolAssistant
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 
-class MultiToolChatBot:
-    """Main application class for the multi-tool OpenAI assistant."""
+def print_banner():
+    """Print the application banner."""
+    print("=" * 60)
+    print("   LangChain API Calling Assistant")
+    print("   Demonstrating Tool Calling with Multiple APIs")
+    print("=" * 60)
+    print()
+
+
+def print_help():
+    """Print help information."""
+    help_text = """
+Available Commands:
+  help, h, ?           - Show this help message
+  quit, exit, q        - Exit the application
+  clear, cls           - Clear the screen
+  config, settings     - Show current configuration
+  capabilities, caps   - Show available tools and capabilities
+  test                 - Run connection tests
+  
+Usage Examples:
+  "What's the weather in Tokyo?"
+  "What time is it in New York?"
+  "Where am I?"
+  "Tell me about the weather where I am"
+  "What's the current time?"
+  "Get location info for Paris, France"
+
+Features:
+  - Weather information for any city worldwide
+  - Current time with timezone support
+  - Location detection and information lookup
+  - Conversational interface with context awareness
+  - Powered by LangChain's tool calling framework
+"""
+    print(help_text)
+
+
+def format_response(response: Dict[str, Any]) -> str:
+    """Format the assistant response for display."""
+    if not response.get("success", False):
+        return f"❌ Error: {response.get('error', 'Unknown error occurred')}"
     
-    def __init__(self):
-        """Initialize the chat bot with OpenAI assistant."""
+    output = f"🤖 {response.get('response', 'No response')}"
+    
+    # Add debug information if available
+    if response.get("tools_used"):
+        tools_info = []
+        for tool in response["tools_used"]:
+            tools_info.append(f"  • {tool.get('function', 'Unknown tool')}")
+        
+        if tools_info:
+            output += f"\n\n🔧 Tools used:\n" + "\n".join(tools_info)
+    
+    return output
+
+
+def handle_command(command: str, assistant: LangChainToolAssistant) -> bool:
+    """
+    Handle special commands. Returns True if command was handled, False otherwise.
+    """
+    command = command.lower().strip()
+    
+    if command in ['help', 'h', '?']:
+        print_help()
+        return True
+    
+    elif command in ['quit', 'exit', 'q']:
+        print("👋 Goodbye!")
+        return True
+    
+    elif command in ['clear', 'cls']:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print_banner()
+        return True
+    
+    elif command in ['config', 'settings']:
         try:
-            self.assistant = MultiToolAssistant()
-            self.is_running = False
-            
-        except ValueError as e:
-            print(f"Configuration Error: {e}")
-            print("\nPlease ensure you have:")
-            print("1. Copied .env.example to .env")
-            print("2. Added your OpenAI API key to OPENAI_API_KEY in the .env file")
-            print("3. Added your OpenWeatherMap API key to WEATHER_API_KEY in the .env file")
-            print("4. Installed required dependencies: pip install -r requirements.txt")
-            sys.exit(1)
+            capabilities = assistant.get_available_capabilities()
+            print("\n📋 Current Configuration:")
+            print(f"  Model: {capabilities['model_info']['model']}")
+            print(f"  Temperature: {capabilities['model_info']['temperature']}")
+            print(f"  Max Tokens: {capabilities['model_info']['max_tokens']}")
+            print(f"  Available Tools: {len(capabilities['tools'])}")
+            print("\n🔧 Feature Flags:")
+            for feature, enabled in capabilities['features'].items():
+                status = "✓" if enabled else "✗"
+                print(f"  {status} {feature.replace('_', ' ').title()}")
         except Exception as e:
-            print(f"Initialization Error: {e}")
-            sys.exit(1)
+            print(f"❌ Error getting configuration: {e}")
+        return True
     
-    def start(self):
-        """Start the interactive command-line interface."""
-        self.is_running = True
+    elif command in ['capabilities', 'caps']:
+        try:
+            capabilities = assistant.get_available_capabilities()
+            print("\n🛠️  Available Tools:")
+            for tool in capabilities['tools']:
+                print(f"  • {tool['name']}: {tool['description']}")
+            
+            print(f"\n📊 Total Tools: {len(capabilities['tools'])}")
+        except Exception as e:
+            print(f"❌ Error getting capabilities: {e}")
+        return True
+    
+    elif command == 'test':
+        print("\n🧪 Testing LangChain tool calling...")
+        test_queries = [
+            "What's the weather in London?",
+            "What time is it?",
+        ]
         
-        # Display welcome message
-        config = self.assistant.get_config_info()
-        print("🤖 Welcome to the Multi-Tool OpenAI Assistant!")
-        print("This assistant demonstrates OpenAI Function Calling with multiple APIs.")
-        print(f"Model: {config['openai_model']} | Functions: {config['total_functions']} available")
-        print("\nI can help you with:")
-        print("🌤️  Weather information for any city")
-        if config['enabled_functions']['time']:
-            print("⏰ Current time and timezone information")
-        if config['enabled_functions']['location']:
-            print("📍 Location detection and geographic information")
-        print("\nType 'help' for examples or 'quit' to exit.\n")
-        
-        # Test API connections
-        print("Testing API connections...")
-        connection_tests = self.assistant.test_connection()
-        
-        all_connected = True
-        for service, result in connection_tests.items():
-            if service != "configuration":
-                status = "✅" if result["success"] else "❌"
-                print(f"{status} {service.replace('_', ' ').title()}: {result['message']}")
-                if not result["success"]:
-                    all_connected = False
-        
-        if not all_connected:
-            print("\n⚠️  Some connections failed. Some features may not work properly.")
-            print("Please check your API keys and internet connection.\n")
-        else:
-            print("\n🎉 All systems ready! You can start asking questions.\n")
-        
-        # Main interaction loop
-        while self.is_running:
+        for query in test_queries:
+            print(f"\nTesting: {query}")
             try:
-                self._handle_user_interaction()
-            except KeyboardInterrupt:
-                print("\n\nGoodbye! 👋")
-                break
+                response = assistant.chat(query)
+                if response.get("success"):
+                    print(f"✓ Success: {response['response'][:100]}...")
+                else:
+                    print(f"✗ Failed: {response.get('error', 'Unknown error')}")
             except Exception as e:
-                print(f"An unexpected error occurred: {e}")
-                print("Please try again or type 'quit' to exit.")
-        
-        print("Thank you for using the Multi-Tool OpenAI Assistant! 🌟")
+                print(f"✗ Error: {e}")
+        return True
     
-    def _handle_user_interaction(self):
-        """Handle a single user interaction cycle."""
-        # Get user input
-        user_input = input("🗣️  You: ").strip()
-        
-        if not user_input:
-            return
-        
-        # Check for special commands
-        if self._handle_special_commands(user_input):
-            return
-        
-        # Process with OpenAI assistant
-        print("🤖 Assistant: ", end="", flush=True)
-        response = self.assistant.process_user_query(user_input)
-        print(response)
-        print()  # Add spacing between interactions
-    
-    def _handle_special_commands(self, user_input: str) -> bool:
-        """
-        Handle special commands like help, quit, etc.
-        
-        Args:
-            user_input (str): User input to check for special commands
-            
-        Returns:
-            bool: True if a special command was handled
-        """
-        input_lower = user_input.lower().strip()
-        
-        if input_lower in ['quit', 'exit', 'q', 'bye']:
-            self.is_running = False
-            return True
-        
-        elif input_lower in ['help', 'h', '?']:
-            self._show_help()
-            return True
-        
-        elif input_lower in ['test', 'test connection', 'status']:
-            self._test_connections()
-            return True
-        
-        elif input_lower in ['info', 'about', 'config', 'configuration']:
-            self._show_config()
-            return True
-        
-        return False
-    
-    def _show_help(self):
-        """Display help information with examples."""
-        config = self.assistant.get_config_info()
-        
-        help_text = f"""
-🔧 Multi-Tool OpenAI Assistant Help
-
-This assistant uses OpenAI's {config['openai_model']} with function calling to access multiple services.
-You can ask questions in natural language!
-
-🌤️ Weather queries:
-• "What's the weather like in London?"
-• "How's the weather in New York today?"
-• "Is it raining in Paris?"
-• "What's the temperature in Tokyo?"
-"""
-
-        if config['enabled_functions']['time']:
-            help_text += """
-⏰ Time & timezone queries:
-• "What time is it?"
-• "What time is it in London?"
-• "What's the current date?"
-• "What timezone is New York in?"
-"""
-
-        if config['enabled_functions']['location']:
-            help_text += """
-📍 Location queries:
-• "Where am I?"
-• "What's my current location?"
-• "Tell me about Paris, France"
-• "What are the coordinates of Tokyo?"
-"""
-
-        help_text += """
-🔗 Combined queries:
-• "What's the weather like where I am?"
-• "What time is it in London and what's the weather there?"
-
-Special commands:
-• 'help' or 'h' - Show this help message
-• 'test' - Test API connections
-• 'config' - Show current configuration
-• 'quit' or 'q' - Exit the assistant
-
-💡 Tip: Ask questions naturally! The AI will determine which tools to use.
-        """
-        print(help_text)
-    
-    def _test_connections(self):
-        """Test and display API connection status."""
-        print("🔍 Testing API connections...\n")
-        
-        results = self.assistant.test_connection()
-        
-        for service, result in results.items():
-            if service != "configuration":
-                status = "✅ Connected" if result["success"] else "❌ Failed"
-                print(f"{service.replace('_', ' ').title()}: {status}")
-                print(f"   Message: {result['message']}\n")
-        
-        # Show configuration
-        config = results.get("configuration", {})
-        print("Current Configuration:")
-        print(f"   Model: {config.get('model', 'Unknown')}")
-        print(f"   Temperature: {config.get('temperature', 'Unknown')}")
-        print(f"   Max Tokens: {config.get('max_tokens', 'Unknown')}")
-        print(f"   Functions Available: {config.get('functions_enabled', 'Unknown')}")
-    
-    def _show_config(self):
-        """Display current configuration."""
-        config = self.assistant.get_config_info()
-        
-        print("🔧 Current Configuration:")
-        print(f"   OpenAI Model: {config['openai_model']}")
-        print(f"   Temperature: {config['temperature']}")
-        print(f"   Max Tokens: {config['max_tokens']}")
-        print(f"   Weather Units: {config['weather_units']}")
-        print(f"   Timeout: {config['timeout']}s")
-        print(f"   Debug Mode: {'On' if config['debug_mode'] else 'Off'}")
-        print()
-        print("🔧 Enabled Functions:")
-        for func_type, enabled in config['enabled_functions'].items():
-            status = "✅ Enabled" if enabled else "❌ Disabled"
-            print(f"   {func_type.title()}: {status}")
-        print(f"\nTotal Functions Available: {config['total_functions']}")
-        print("\n💡 You can modify these settings in your .env file!")
-    
-    def process_single_query(self, query: str) -> str:
-        """
-        Process a single query and return the response.
-        
-        This method is useful for programmatic access or testing.
-        
-        Args:
-            query (str): User query to process
-            
-        Returns:
-            str: Assistant's response
-        """
-        try:
-            return self.assistant.process_user_query(query)
-        except Exception as e:
-            return f"An error occurred while processing your query: {str(e)}"
+    return False
 
 
 def main():
-    """Main entry point for the application."""
+    """Main application loop."""
     try:
-        chatbot = MultiToolChatBot()
-        chatbot.start()
+        # Initialize the assistant
+        print("🚀 Initializing LangChain Tool Assistant...")
+        assistant = LangChainToolAssistant()
+        
+        # Clear screen and show banner
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print_banner()
+        
+        # Show initial information
+        capabilities = assistant.get_available_capabilities()
+        print(f"✅ Assistant initialized successfully!")
+        print(f"📋 Model: {capabilities['model_info']['model']}")
+        print(f"🔧 Tools available: {len(capabilities['tools'])}")
+        print(f"\nType 'help' for usage instructions or 'quit' to exit.\n")
+        
+        # Conversation history for context
+        conversation_history = []
+        
+        # Main conversation loop
+        while True:
+            try:
+                # Get user input
+                user_input = input("You: ").strip()
+                
+                if not user_input:
+                    continue
+                
+                # Handle special commands
+                if handle_command(user_input, assistant):
+                    if user_input.lower() in ['quit', 'exit', 'q']:
+                        break
+                    continue
+                
+                # Process with assistant
+                print("🤔 Thinking...")
+                response = assistant.chat(user_input, conversation_history)
+                
+                # Display response
+                print(format_response(response))
+                print()
+                
+                # Update conversation history
+                conversation_history.append({
+                    "role": "user",
+                    "content": user_input
+                })
+                
+                if response.get("success"):
+                    conversation_history.append({
+                        "role": "assistant", 
+                        "content": response.get("response", "")
+                    })
+                
+                # Keep conversation history manageable
+                if len(conversation_history) > 10:
+                    conversation_history = conversation_history[-8:]
+                
+            except KeyboardInterrupt:
+                print("\n\n👋 Goodbye!")
+                break
+            except EOFError:
+                print("\n👋 Goodbye!")
+                break
+            except Exception as e:
+                print(f"❌ An unexpected error occurred: {e}")
+                print("Please try again or type 'quit' to exit.\n")
+    
     except Exception as e:
-        print(f"Failed to start the Multi-Tool OpenAI Assistant: {e}")
+        print(f"❌ Failed to initialize assistant: {e}")
+        print("\n💡 Troubleshooting:")
+        print("  1. Check your .env file configuration")
+        print("  2. Ensure you have valid API keys")
+        print("  3. Check your internet connection")
+        print("  4. Install required dependencies: pip install -r requirements.txt")
         sys.exit(1)
 
 
