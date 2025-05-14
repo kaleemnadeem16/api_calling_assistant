@@ -728,7 +728,7 @@ class LangChainToolAssistant:
         """Initialize the assistant with API credentials and tools."""
         # Load configuration from environment
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        self.model = os.getenv('OPENAI_MODEL', 'gpt-4.1-nano')
         self.temperature = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
         self.max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '500'))
         

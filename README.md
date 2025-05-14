@@ -55,7 +55,7 @@ A Python-based AI assistant that demonstrates **LangChain Tool Calling** capabil
    ```env
    # OpenAI Configuration
    OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-3.5-turbo
+   OPENAI_MODEL=gpt-4.1-nano
    OPENAI_TEMPERATURE=0.7
    OPENAI_MAX_TOKENS=500
    
@@ -153,7 +153,7 @@ api_calling_assistant/
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `OPENAI_API_KEY` | Your OpenAI API key | - | Yes |
-| `OPENAI_MODEL` | OpenAI model to use | `gpt-3.5-turbo` | No |
+| `OPENAI_MODEL` | OpenAI model to use | `gpt-4.1-nano` | No |
 | `OPENAI_TEMPERATURE` | Model temperature (0-1) | `0.7` | No |
 | `OPENAI_MAX_TOKENS` | Maximum response tokens | `500` | No |
 | `WEATHER_API_KEY` | OpenWeatherMap API key | - | Yes |
@@ -165,9 +165,9 @@ api_calling_assistant/
 | `TIMEOUT` | API timeout seconds | `10` | No |
 
 ### Model Options
-- `gpt-3.5-turbo` (recommended for cost efficiency)
+- `gpt-4.1-nano` (recommended for cost efficiency and performance)
+- `gpt-3.5-turbo` (cost-effective option)
 - `gpt-4` (for enhanced capabilities)
-- `gpt-4-turbo-preview` (latest features)
 
 ## 🧪 Testing
 
@@ -202,7 +202,7 @@ The test suite includes:
 
 4. **Tool calling not working**
    - Check your OpenAI API key has access to function calling
-   - Verify the model supports tool calling (gpt-3.5-turbo or gpt-4)
+   - Verify the model supports tool calling (gpt-4.1-nano, gpt-3.5-turbo or gpt-4)
    - Enable debug mode: `DEBUG=true` in `.env`
 
 5. **Location detection issues**
