@@ -132,7 +132,6 @@ User Query → LangChain Agent → Tool Selection → Tool Execution → Respons
 ```
 api_calling_assistant/
 ├── main.py                    # Main CLI application
-├── openai_assistant.py        # LangChain assistant with tool definitions
 ├── test_assistant.py          # Comprehensive test suite
 ├── requirements.txt           # Python dependencies
 ├── .env.example              # Environment configuration template
@@ -140,7 +139,17 @@ api_calling_assistant/
 ├── .gitignore               # Git ignore rules
 ├── LICENSE                  # MIT License
 ├── README.md               # This file
-└── docs/                   # Documentation (local only)
+├── core/                     # Core assistant logic
+│   ├── __init__.py          # Core module exports
+│   └── assistant.py         # Main LangChain assistant class
+├── tools/                    # Individual tool implementations
+│   ├── __init__.py          # Tool exports
+│   ├── schemas.py           # Pydantic input schemas
+│   ├── weather_tool.py      # Weather API integration
+│   ├── time_tool.py         # Time and timezone tools
+│   ├── location_tool.py     # IP-based location detection
+│   └── location_info_tool.py # Detailed location information
+└── docs/                     # Documentation (local only)
     ├── project_overview.md
     ├── development_rules.md
     └── architecture.md

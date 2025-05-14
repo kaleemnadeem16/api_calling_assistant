@@ -14,7 +14,7 @@ from typing import Dict, Any, List
 # Add the current directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from openai_assistant import LangChainToolAssistant
+from core import LangChainToolAssistant
 from dotenv import load_dotenv
 
 # Load environment variables
